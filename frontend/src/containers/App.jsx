@@ -92,7 +92,7 @@ class App extends React.Component {
 
 
 	render() {
-		{ input, imageUrl, boxes, route, signedIn } = this.state
+		const { input, imageUrl, boxes, route, signedIn } = this.state
 		return (
 			<div className="App">
 				<Particles className="particles" params={particleOptions} />

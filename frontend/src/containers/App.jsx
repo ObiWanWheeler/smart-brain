@@ -42,7 +42,15 @@ class App extends React.Component {
 				imageUrl: '',
 				boxes: [],
 				route: 'signin',
-				signedIn: false
+				signedIn: false,
+				user: {
+					id: '',
+					name: '',
+					email:  '',
+					password: '',
+					entries: 0,
+					joined: ''
+				}
 			};
 	}
 
@@ -58,6 +66,10 @@ class App extends React.Component {
 		this.setState({signedIn: false});
 	}
 
+	loadUser = (data) => {
+		this.setState({user: {...data}});
+	}
+
 	onInputChange = (event) => {
 		this.setState({ input: event.target.value });
 	}
@@ -66,8 +78,19 @@ class App extends React.Component {
 		this.setState({ imageUrl: this.state.input, boxes: [] })
 
 		try {
-			const response = await app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input);
-			const faceBoxes = await response.outputs[0].data.regions.map(region => region.region_info.bounding_box);
+			const clarifaiResp = await app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input);
+			if (clarifaiResp) {
+				const serverResp = await fetch('http://localhost:5000/image', {
+					method: 'put',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({
+						id: this.state.user.id
+					})
+				});
+				const entryCount = await serverResp.json();
+				this.setState(Object.assign(this.state.user, { entries: entryCount }))
+			}
+			const faceBoxes = await clarifaiResp.outputs[0].data.regions.map(region => region.region_info.bounding_box);
 			const faceLocs = [];
 			for (let box of faceBoxes) {
 				faceLocs.push(this.calculateFaceLocation(box));
@@ -90,9 +113,8 @@ class App extends React.Component {
 		};
 	}
 
-
 	render() {
-		const { input, imageUrl, boxes, route, signedIn } = this.state
+		const { imageUrl, boxes, route, signedIn } = this.state
 		return (
 			<div className="App">
 				<Particles className="particles" params={particleOptions} />
@@ -102,7 +124,7 @@ class App extends React.Component {
 							return (
 								<div>
 									<Logo />									
-									<Signin changeRoute={this.changeRoute} signIn={this.signIn}/>
+									<Signin changeRoute={this.changeRoute} signIn={this.signIn} loadUser={this.loadUser}/>
 								</div>
 							);
 						}
@@ -110,7 +132,7 @@ class App extends React.Component {
 							return (
 								<React.Fragment>
 									<Logo />																		
-									<Rank />
+									<Rank name={this.state.user.name} entryCount={this.state.user.entries}/>
 									<ImageLinkForm onInputChange={this.onInputChange} onButtonSubmit={this.onSubmit}/>
 									<FaceRecognition imageUrl={imageUrl} boxes={boxes}/>
 								</React.Fragment>
@@ -120,7 +142,7 @@ class App extends React.Component {
 							return (
 								<React.Fragment>
 									<Logo />									
-									<Register changeRoute={this.changeRoute} signIn={this.signIn}/>
+									<Register changeRoute={this.changeRoute} signIn={this.signIn} loadUser={this.loadUser}/>
 								</React.Fragment>
 							)
 						}

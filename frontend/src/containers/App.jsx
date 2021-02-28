@@ -16,7 +16,7 @@ const particleOptions = {
 			value: 30,
 			density: {
 				enable: true,
-				value_area: 800
+				value_area: 2000
 			}
 		},
 		line_linked: {
@@ -67,7 +67,7 @@ class App extends React.Component {
 	}
 
 	loadUser = (data) => {
-		this.setState({user: {...data}});
+		this.setState({user: {...data}, imageUrl: ''});
 	}
 
 	onInputChange = (event) => {

@@ -1,5 +1,18 @@
 import express from 'express';
 import cors from 'cors';
+import knex from 'knex';
+import bcrypt from 'bcrypt-nodejs';
+
+const db = knex({
+    client: 'pg',
+    connection: {
+      host : '127.0.0.1',
+      user : 'postgres',
+      password : 'DivineHD1',
+      database : 'smartbrain'
+    }
+});
+
 
 const app = express();
 
@@ -7,94 +20,67 @@ app.use(express.json());
 app.use(cors());
 
 
-const database = {
-    users: [
-        {
-            id: '123',
-            name: 'John',
-            email: 'john@gmail.com',
-            password: 'cookies',
-            entries: 0,
-            joined: new Date()
-        },
-        {
-            id: '124',
-            name: 'Bill',
-            email: 'bill@gmail.com',
-            password: 'cookies123',
-            entries: 2,
-            joined: new Date()
-        }
-    ],
-    login: [
-        {
-            id: '123',
-            hash: '',
-            email: 'john@gmail.com'
-        }
-    ]
-}
-
-
-
 app.get('/', (req, res) => {
-    res.json(database.users);
+    db.select('*').from('users').then(users => res.json(users));
 });
 
 app.get('/profile/:id', (req, res) => {
     const id  = req.params.id;
-    let found = false;
-    database.users.forEach(user => {
-        if (user.id === id) {
-            found = true;
-            return res.json(user);
-        }
+    db.select('*').from('users').where('id', id).then(user => {
+        user.length > 0 ? res.json(user) : res.status(404).json('error retreiving user')
     });
-    if (!found) {
-        return res.status(404).json('user not found');
-    }
-    
 });
 
 app.post('/signin', (req, res) => {
-    if (req.body.email === database.users[0].email && 
-        req.body.password === database.users[0].password) {
-        res.json(database.users[0])
-    }
-    else {
-        res.status(400).json('access denied')
-    }
+    db.select('email', 'hash').from('login').where('email', '=', req.body.email)
+    .then(data => {
+        const isValid = bcrypt.compareSync(req.body.password, data[0].hash)
+        if (isValid) {
+            return db.select('*').from('users')
+            .where('email', '=', req.body.email)
+            .then(user => res.json(user[0]))
+            .catch(() => res.status(400).json('unable to signin user'))
+        }
+        else {
+            res.status(400).json('invalid credentials');
+        }
+    })
+    .catch(() => res.status(400).json('invalid credentials'));
 });
 
 app.post('/register', (req, res) => {
     const { email, name, password } = req.body;
-   
-    const newUser = {
-        id: 111,
-        name:name,
-        email: email,
-        password: password,
-        entries: 0,
-        joined: new Date()
-    };
-    database.users.push(newUser);
-    
-    res.json(newUser);
+    const hashedPass = bcrypt.hashSync(password);
+    db.transaction(trx => 
+        trx.into('login')
+        .insert({
+            hash: hashedPass,
+            email: email
+        })
+        .returning('email')
+        .then(loginEmail => 
+            trx.into('users')
+            .insert({
+                name: name, 
+                email: loginEmail[0], 
+                joindate: new Date()
+            }).returning('*')
+            .then(user => {
+                res.json(user[0])
+            })
+        )
+        .then(trx.commit)
+        .catch(trx.rollback)
+    )
+    .catch(err => {console.log(err); res.status(400).json('unable to register');});
 });
 
 app.put('/image', (req, res) => {
     const id  = req.body.id;
-    let found = false;
-    database.users.forEach(user => {
-        if (user.id === id) {
-            found = true;
-            user.entries++;
-            return res.json(user.entries);
-        }
-    });
-    if (!found) {
-        return res.status(404).json('user not found');
-    }
+    db('users').where('id', '=', id).increment('entries', 1).returning('entries')
+    .then(entries => {
+        entries.length > 0 ? res.json(entries[0]) : res.status(400).json('unable to get entries');
+    })
 })
 
 app.listen(5000, () => {

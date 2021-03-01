@@ -39,7 +39,7 @@ class Register extends React.Component {
         })
 
         const user = await response.json();
-        if (user){
+        if (user.id){
             loadUser(user);
             signIn()
             changeRoute('home'); 

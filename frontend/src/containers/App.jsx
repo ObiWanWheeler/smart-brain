@@ -8,7 +8,6 @@ import FaceRecognition from '../components/FaceRecognition/FaceRecognition.jsx'
 import Signin from '../components/signin form/Signin.jsx';
 import Register from '../components/register form/Register.jsx'
 import Particles from 'react-particles-js';
-import Clarifai from 'clarifai';
 
 const particleOptions = {
 	particles: {
@@ -29,9 +28,6 @@ const particleOptions = {
 	}
 }
 
-const app = new Clarifai.App({
-	apiKey: '3160b1eb71a7425b8b78e134bf56e940'
-});
 
 const initialState = {
 	input: '',
@@ -77,9 +73,15 @@ class App extends React.Component {
 
 	onSubmit = async () => {
 		this.setState({ imageUrl: this.state.input, boxes: [] })
-
 		try {
-			const clarifaiResp = await app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input);
+			const clarifaiResp = await fetch('http://localhost:5000/imageurl', {
+				method: 'post',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({
+					input: this.state.input
+				})
+			}).then(response => response.json());
+
 			if (clarifaiResp) {
 				try {
 					const serverResp = await fetch('http://localhost:5000/image', {

@@ -33,25 +33,26 @@ const app = new Clarifai.App({
 	apiKey: '3160b1eb71a7425b8b78e134bf56e940'
 });
 
+const initialState = {
+	input: '',
+	imageUrl: '',
+	boxes: [],
+	route: 'signin',
+	signedIn: false,
+	user: {
+		id: '',
+		name: '',
+		email:  '',
+		password: '',
+		entries: 0,
+		joined: ''
+	}
+}
 class App extends React.Component {
 
 	constructor() {
 			super();
-			this.state = {
-				input: '',
-				imageUrl: '',
-				boxes: [],
-				route: 'signin',
-				signedIn: false,
-				user: {
-					id: '',
-					name: '',
-					email:  '',
-					password: '',
-					entries: 0,
-					joined: ''
-				}
-			};
+			this.state = initialState;
 	}
 
 	changeRoute = (route) => {
@@ -63,11 +64,11 @@ class App extends React.Component {
 	}
 
 	signOut = () => {
-		this.setState({signedIn: false});
+		this.setState(initialState);
 	}
 
 	loadUser = (data) => {
-		this.setState({user: {...data}, imageUrl: ''});
+		this.setState({user: {...data}});
 	}
 
 	onInputChange = (event) => {
@@ -80,7 +81,8 @@ class App extends React.Component {
 		try {
 			const clarifaiResp = await app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input);
 			if (clarifaiResp) {
-				const serverResp = await fetch('http://localhost:5000/image', {
+				try {
+					const serverResp = await fetch('http://localhost:5000/image', {
 					method: 'put',
 					headers: {'Content-Type': 'application/json'},
 					body: JSON.stringify({
@@ -89,6 +91,9 @@ class App extends React.Component {
 				});
 				const entryCount = await serverResp.json();
 				this.setState(Object.assign(this.state.user, { entries: entryCount }))
+				} catch (error) {
+					console.log('oops', error);
+				}
 			}
 			const faceBoxes = await clarifaiResp.outputs[0].data.regions.map(region => region.region_info.bounding_box);
 			const faceLocs = [];
